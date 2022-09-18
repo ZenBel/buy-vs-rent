@@ -20,3 +20,11 @@ Total monthly unrecoverable costs of buying:
 Can you find a rental apartment similar to the one you want to buy for which `Total monthly unrecoverable costs of renting < Total monthly unrecoverable costs of buying`?
 
 If yes, then renting is a better financial decision than buying.
+
+Assumptions and approximations
+
+- In NL, property tax should be a function of the catastal value of the house and not of the purchase value.
+- Only annuity mortgages with fixed interest rate are considered
+- No closing costs when selling the house are considered
+- Property taxes, maintenance costs, and additional monthly costs of the house are assumed to increase by the same percentage as the inflation rate.
+- Rent is assumed to increase by the same percentage as the inflation rate.
