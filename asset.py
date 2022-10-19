@@ -91,3 +91,21 @@ def distreturns(
     )
     returns[0] = 1
     return returns
+
+
+def inflated_series(amount, inflation, simulation_periods):
+    """Project an initial value over the forecast period with inflation.
+
+    Parameters
+    ----------
+    amount: numeric
+        The value to inflate
+
+    Returns
+    -------
+    array_like
+        The value projected into the future
+    """
+    base_inflate = np.full(simulation_periods, 1 + inflation).cumprod()
+    inflated = base_inflate * amount
+    return inflated
