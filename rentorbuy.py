@@ -109,23 +109,27 @@ class RentOrBuy:
             )
         # Get the mortgage
         mortgage = Mortgage(
-            buy_dict["mortgage"], mortgage_amortization_years, mortgage_apr
+            principal=buy_dict["mortgage"],
+            years=mortgage_amortization_years,
+            rate=mortgage_apr,
         )
         # Compute mortgage repayments
         self.mortgage_df = mortgage.amortize(
             addl_pmt=mortgage_additional_payments
         )
         self._simulation_periods = self.mortgage_df.shape[0]
-        # Compute monthly inflation
+        # monthly inflation rate
         self._inflation = annual_to_monthly_return(annual_inflation)
+        # monthly property tax
         if monthly_property_tax_rate is None:
             property_tax = house.monthly_property_tax()
         else:
             property_tax = house.monthly_property_tax(
                 rate=monthly_property_tax_rate
             )
-        # Monthly maintenance costs as function of the house_price
+        # monthly maintenance costs as function of the house price
         maintenance = house_price * maintenance_cost / 12
+        # monthly costs of the house (extra costs compared to a rental)
         non_mortgage_costs_start = (
             property_tax + maintenance + additional_monthly_costs
         )
@@ -133,13 +137,14 @@ class RentOrBuy:
         non_mortgage_ownership_costs = self._inflated_series(
             non_mortgage_costs_start
         )
-        # Monthly cost of owning a house (money that cannot be invested)
+        # monthly cost of owning a house (money that cannot be invested)
         own_cash_flow = (
             self.mortgage_df["total_payment"].to_numpy()
             + non_mortgage_ownership_costs
         )
+        # add intial cash payment when you buy
         own_cash_flow[0] += buy_dict["cash"]
-        # Monthly appreciation of house value
+        # monthly appreciation of house value
         self.house_appreciation = (
             distreturns(
                 **housing_asset_dict,
@@ -148,24 +153,35 @@ class RentOrBuy:
             )
             * house_price
         )
+        # calculate monthly new worth
         own_debt = self.mortgage_df["End_balance"].to_numpy()
         self.own_net_worth = (self.house_appreciation.T - own_debt).T
+
         # Renting: we assume that, if we decide to rent, we invest
         # all the money that we save by not having a mortgage.
+
+        # monthly rent adjusted for inflation
         rent_cash_flow = self._inflated_series(monthly_rent)
+        # monthly amount of money we save by renting
         rent_net_cash_flow = own_cash_flow - rent_cash_flow
+        # if we save something, then we invest it
         rent_invest_cash_flow = np.maximum(rent_net_cash_flow, 0)
+        # if renting is more expensive than owning then we are
+        # losing money
         rent_drawdown_cash_flow = np.minimum(rent_net_cash_flow, 0)
+        # monthly returns of investment of choice
         asset_prices = distreturns(
             **investment_asset_dict,
             periods=self._simulation_periods,
             simulations=number_of_simulations,
         )
         self.ap = asset_prices
+        # Not sure what's being calculated here...
         asset_units_purchase = (
             rent_invest_cash_flow / asset_prices.T
         ).T.cumsum(axis=0)
         self.aup = asset_units_purchase
+        # calculate monthly ner worth for rent
         rent_investment_value = asset_units_purchase * asset_prices
         self.riv = rent_investment_value
         self.rent_net_worth = (
@@ -234,6 +250,21 @@ class RentOrBuy:
         plt.plot(x, rent_med, label="Rent")
         plt.legend()
         plt.title("Median returns over the investment horizon")
+        # ax.get_yaxis().set_ticks([])
+        ax.yaxis.set_major_formatter(StrMethodFormatter("${x:n}"))
+        plt.xlabel("Months")
+        plt.ylabel("Net Worth")
+        # ax.xaxis.set_major_formatter(StrMethodFormatter("${x:0.2e}"))
+        plt.show()
+
+    def returns_plot(self):
+        """Plot returns over the whole amortization period."""
+        x = np.arange(0, len(self.own_net_worth))
+        fig, ax = plt.subplots(figsize=(8, 4))
+        plt.plot(x, self.own_net_worth, label="Own", color="b", alpha=0.01)
+        plt.plot(x, self.rent_net_worth, label="Rent", color="r", alpha=0.01)
+        # plt.legend()
+        plt.title("Simulated returns over the investment horizon")
         # ax.get_yaxis().set_ticks([])
         ax.yaxis.set_major_formatter(StrMethodFormatter("${x:n}"))
         plt.xlabel("Months")
