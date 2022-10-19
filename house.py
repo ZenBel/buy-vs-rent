@@ -97,8 +97,7 @@ class Mortgage:
     def monthly_payment(self):
         """Calculate payments required for a monthly payment schedule.
 
-        Takes APR as an input and compounds semi annually for AER. Canadian
-        mortgages are dumb like that.
+        Takes APR as an input and compounds anually.
 
         Returns
         -------
@@ -107,11 +106,11 @@ class Mortgage:
         """
         rate = self.rate
         # monthly interest rate
-        periodic_interest_rate = (1 + rate) ** (1 / 12) - 1
+        periodic_interest_rate = rate / 12
         # monthly repayment period
         periods = self.years * 12
         pmt = -round(
-            npf.pmt(periodic_interest_rate, periods, self.principal), 2
+            npf.pmt(periodic_interest_rate, periods, self.principal), 0
         )
         return pmt
 
@@ -123,7 +122,7 @@ class Mortgage:
         addl_pmt: numeric, default 0
             additional regular contributions
         payment_type: ["monthly", "bi_weekly", "acc_bi_weekly"], default "monthly"
-            type of payment plan
+            type of payment plan. Only "monthly" supported currently.
 
         Returns
         -------
@@ -145,9 +144,10 @@ class Mortgage:
             Dict
                 All the data for another period of mortgage payments
             """
+            # monthly payment amount
             pmt = self.monthly_payment()
-            rate = (1 + (self.rate / 2)) ** 2 - 1
-            periodic_interest_rate = (1 + rate) ** (1 / 12) - 1
+            # monthly interest rate
+            periodic_interest_rate = self.rate / 12
             date_increment = relativedelta(months=1)
 
             # initialize the variables to keep track of the periods and running balance
@@ -158,7 +158,7 @@ class Mortgage:
 
             while end_balance > 0:
                 # recalculate interest based on the current balance
-                interest = round(periodic_interest_rate * beg_balance, 2)
+                interest = round(periodic_interest_rate * beg_balance, 0)
 
                 # Determine payment based on whether this will pay off the loan
                 pmt = min(pmt, beg_balance + interest)
@@ -190,7 +190,7 @@ class Mortgage:
             .assign(Date=lambda df: pd.to_datetime(df["Date"]))
             .set_index("Date")
             .drop(columns=["Period"])
-            .resample("MS")
+            .resample("MS") #resample month-start freq
             .agg(
                 {
                     "Begin_balance": "max",
