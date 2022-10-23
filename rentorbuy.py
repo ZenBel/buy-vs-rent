@@ -39,6 +39,8 @@ class RentOrBuy:
         self,
         monthly_rent,
         house_price,
+        woz_value,
+        eigenwoningforfait,
         down_payment,
         mortgage_amortization_years,
         mortgage_apr,
@@ -99,7 +101,9 @@ class RentOrBuy:
             maintenance and upkeep. Note that this is also escalated by inflation
         """
         # Buy the house
-        house = House(value=house_price)
+        house = House(
+            value=house_price, woz_value=woz_value, ewf=eigenwoningforfait
+        )
         if additional_purchase_costs is None:
             buy_dict = house.buy(down_payment=down_payment)
         else:
@@ -107,19 +111,22 @@ class RentOrBuy:
                 down_payment=down_payment,
                 additional_costs=additional_purchase_costs,
             )
+        # monthly inflation rate
+        self._simulation_periods = mortgage_amortization_years * 12
+        self._inflation = annual_to_monthly_return(annual_inflation)
         # Get the mortgage
         mortgage = Mortgage(
             principal=buy_dict["mortgage"],
             years=mortgage_amortization_years,
             rate=mortgage_apr,
+            monthly_fictitious_income=self._inflated_series(
+                house.montly_fictitious_income
+            ),
         )
         # Compute mortgage repayments
         self.mortgage_df = mortgage.amortize(
             addl_pmt=mortgage_additional_payments
         )
-        self._simulation_periods = self.mortgage_df.shape[0]
-        # monthly inflation rate
-        self._inflation = annual_to_monthly_return(annual_inflation)
         # monthly property tax
         if monthly_property_tax_rate is None:
             property_tax = house.monthly_property_tax()
@@ -153,7 +160,7 @@ class RentOrBuy:
             )
             * house_price
         )
-        # calculate monthly new worth
+        # calculate monthly net worth
         own_debt = self.mortgage_df["End_balance"].to_numpy()
         self.own_net_worth = (self.house_appreciation.T - own_debt).T
 
