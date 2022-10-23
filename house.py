@@ -15,10 +15,19 @@ class House:
     ----------
     value: numeric
         The purchase price of the house (including overbid)
+    woz_value: numeric
+        the cadastal value of the house.
+    ewf: numeric
+        The "eigenwoningforfait" is the rate used to calculate
+        the fictitious income that the house generates.
     """
 
-    def __init__(self, value):
+    def __init__(self, value, woz_value, ewf):
         self.value = value
+        self.woz_value = woz_value
+        # In NL, for tax deuction purposes, it is assumed that
+        # the house generates a fictitious income.
+        self.montly_fictitious_income = woz_value * ewf / 12
 
     def monthly_property_tax(self, rate: float = 0.00042):
         """Calculate monthly property tax.
@@ -87,12 +96,18 @@ class Mortgage:
         Amortization period of the mortgage (not term of fixed rate)
     rate: float
         mortgage annual interest rate (including fees), i.e. APR rate.
+    monthly_fictitious_income: float
+        The fictitiouos income that the house generates (adjusted for inflation).
+        Used by tax authorities to compute tax deductions.
     """
 
-    def __init__(self, principal, years, rate):
+    def __init__(self, principal, years, rate, monthly_fictitious_income=None):
         self.principal = principal
         self.years = years
         self.rate = rate
+        self.monthly_fictitious_income = monthly_fictitious_income
+        # The percentage that can be deducted.
+        self.deduction_rate = 0.3707  # HARDCODED
 
     def monthly_payment(self):
         """Calculate payments required for a monthly payment schedule.
@@ -190,7 +205,7 @@ class Mortgage:
             .assign(Date=lambda df: pd.to_datetime(df["Date"]))
             .set_index("Date")
             .drop(columns=["Period"])
-            .resample("MS") #resample month-start freq
+            .resample("MS")  # resample month-start freq
             .agg(
                 {
                     "Begin_balance": "max",
@@ -206,4 +221,15 @@ class Mortgage:
                 + df["Additional_payment"]
             )
         )
+
+        # Tax deductions
+        if all(self.monthly_fictitious_income):
+            df["Tax deduction"] = self.deduction_rate * (
+                self.monthly_fictitious_income - df["Interest"]
+            )
+            df["Tax deduction"] = df["Tax deduction"].round(0)
+
+        df["Net interest"] = df["Interest"] + df["Tax deduction"]
+        df["total_payment"] += df["Tax deduction"]
+
         return df
