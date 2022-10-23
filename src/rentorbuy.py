@@ -5,11 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import StrMethodFormatter
 
-from asset import annual_to_monthly_return
-from asset import distreturns
-from house import House
-from house import Mortgage
-
+from src.asset import annual_to_monthly_return, distreturns
+from src.house import House, Mortgage
 
 locale.setlocale(locale.LC_ALL, "")
 
